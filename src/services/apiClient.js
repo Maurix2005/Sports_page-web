@@ -1,110 +1,43 @@
-import axios from 'axios';
-import ENV from '../config/ENV';
+import { ENV } from '../config/ENV';
 
-export const TOKEN_KEYS = {
-  ACCESS: 'access_token',
-  REFRESH: 'refresh_token',
-};
+export async function apiFetch(endpoint, options = {}) {
+  const userToken = localStorage.getItem('userToken');
 
-const apiClient = axios.create({
-  baseURL: ENV.API_URL,
-  timeout: ENV.API_TIMEOUT,
-  headers: {
+  const headers = {
     'Content-Type': 'application/json',
-  },
-  // Descomenta la siguiente línea si tu backend usa Cookies HttpOnly para el Refresh Token:
-  // withCredentials: true,
-});
+    'x-api-token': ENV.APP_TOKEN, // Primer JWT (Aplicación Cliente)
+    ...(userToken && { Authorization: `Bearer ${userToken}` }), // Segundo JWT (Usuario)
+    ...options.headers,
+  };
 
-// Control de cola para peticiones simultáneas mientras se renueva el token
-let isRefreshing = false;
-let failedQueue = [];
+  // Evitar dobles diagonales // en la URL
+  const baseUrl = ENV.API_URL?.replace(/\/$/, '') || '';
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
+  const response = await fetch(`${baseUrl}${cleanEndpoint}`, {
+    ...options,
+    headers,
   });
-  failedQueue = [];
-};
 
-// 1. INTERCEPTOR DE PETICIÓN: Adjunta el Access Token desde localStorage
-apiClient.interceptors.request.use(
-  (config) => {
-    const accessToken = localStorage.getItem(TOKEN_KEYS.ACCESS);
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// 2. INTERCEPTOR DE RESPUESTA: Renueva el token ante un error 401
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url.includes('/auth/refresh')
-    ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((newToken) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            return apiClient(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshToken = localStorage.getItem(TOKEN_KEYS.REFRESH);
-
-        if (!refreshToken) {
-          throw new Error('No hay refresh token disponible');
-        }
-
-        // Llamada con axios limpio para evitar ciclos infinitos en el interceptor
-        const { data } = await axios.post(`${ENV.API_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        // Guardar nuevos tokens
-        localStorage.setItem(TOKEN_KEYS.ACCESS, data.accessToken);
-        if (data.refreshToken) {
-          localStorage.setItem(TOKEN_KEYS.REFRESH, data.refreshToken);
-        }
-
-        apiClient.defaults.headers.common.Authorization = `Bearer ${data.accessToken}`;
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-
-        processQueue(null, data.accessToken);
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        // Limpiar sesión y redirigir al login en web
-        localStorage.removeItem(TOKEN_KEYS.ACCESS);
-        localStorage.removeItem(TOKEN_KEYS.REFRESH);
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
-    }
-
-    return Promise.reject(error);
+  // Manejo obligatorio de 401 Unauthorized (excepto al intentar hacer login)
+  if (response.status === 401 && !cleanEndpoint.includes('/auth/login')) {
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('userSession');
+    window.location.href = '/login';
+    throw new Error('Sesión expirada. Redirigiendo al login...');
   }
-);
 
-export default apiClient;
+  // Manejo obligatorio de 403 Forbidden
+  if (response.status === 403) {
+    alert('Acceso restringido (403): No tienes permisos para realizar esta acción.');
+    throw new Error('Acceso prohibido');
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message || `Error HTTP: ${response.status}`);
+  }
+
+  return data;
+}

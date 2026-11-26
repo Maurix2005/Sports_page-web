@@ -1,70 +1,67 @@
 import React from 'react';
 
-export default function ItemCard({ item, onRequestLoan }) {
-  const { code, name, sport, condition, available } = item;
-  const isOutOfStock = available <= 0;
+const ItemCard = ({ item, onSelect }) => {
+  const nombre = item.nombre || item.name || 'Sin nombre';
+  const codigo = item.codigo || item.code || '';
+  const deporte = item.deporte || item.sport || 'General';
+  const estado = (item.estadoFisico || item.condition || 'BUENO').toUpperCase();
+  const disponibles = item.disponibles ?? item.available ?? item.cantidadTotal ?? 0;
+  const total = item.cantidadTotal ?? item.total ?? disponibles;
 
-  // Estilos dinámicos para la etiqueta de condición (esquina superior derecha)
-  const getConditionBadgeStyle = (cond) => {
-    const normalized = cond.toUpperCase();
-    if (normalized === 'NUEVO') {
-      return 'bg-[#0A4D9C] text-white border border-[#0A4D9C]';
+  const getConditionBadgeStyle = (condition) => {
+    switch (condition) {
+      case 'NUEVO':
+        return 'bg-[#0050B3] text-white';
+      case 'BUENO':
+        return 'bg-emerald-600 text-white';
+      case 'DESGASTADO':
+        return 'bg-[#FB5607] text-white';
+      case 'DANADO':
+      case 'DAÑADO':
+        return 'bg-[#FE3B3B] text-white';
+      default:
+        return 'bg-[#001326] text-white';
     }
-    if (normalized === 'DESGASTADO') {
-      return 'bg-[#F05A1A] text-white border border-[#F05A1A]';
-    }
-    // Por defecto: BUENO
-    return 'bg-transparent text-[#021226] border border-[#021226]';
   };
 
   return (
-    <div className="bg-[#EAE2D3] border-[3px] border-[#F05A1A] rounded-3xl p-5 shadow-xl flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1">
+    <div className="figma-card p-6 flex flex-col justify-between gap-4">
       <div>
-        {/* Fila superior: Código y Badge de estado */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-bold text-[#021226]/60 tracking-wider uppercase">
-            {code}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0050B3]">
+            {codigo} • {deporte}
           </span>
           <span
-            className={`px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${getConditionBadgeStyle(
-              condition
+            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getConditionBadgeStyle(
+              estado
             )}`}
           >
-            {condition}
+            {estado}
           </span>
         </div>
 
-        {/* Nombre del artículo */}
-        <h3 className="text-[#021226] font-extrabold text-lg leading-snug mb-3">
-          {name}
+        <h3 className="text-lg font-extrabold text-[#001326] mb-1">
+          {nombre}
         </h3>
 
-        {/* Fila inferior de info: Deporte y Disponibilidad */}
-        <div className="flex items-center justify-between text-xs font-semibold mb-4">
-          <span className="text-[#021226]/70">{sport}</span>
-          {isOutOfStock ? (
-            <span className="text-[#F05A1A] font-bold">Agotado</span>
-          ) : (
-            <span className="text-[#1E5AA8] font-bold">
-              {available} disponibles
-            </span>
-          )}
-        </div>
+        <p className="text-xs font-semibold text-[#001326]/80">
+          Disponibles:{' '}
+          <span className="font-extrabold text-[#001326]">
+            {disponibles} / {total}
+          </span>
+        </p>
       </div>
 
-      {/* Botón de acción */}
       <button
         type="button"
-        disabled={isOutOfStock}
-        onClick={() => onRequestLoan && onRequestLoan(item)}
-        className={`w-full py-2 rounded-full text-xs font-bold tracking-wide transition duration-200 ${
-          isOutOfStock
-            ? 'bg-[#C4BDB2] text-[#021226]/50 cursor-not-allowed'
-            : 'bg-[#F05A1A] hover:bg-[#d94d12] text-white border border-[#1E5AA8] cursor-pointer shadow-sm'
-        }`}
+        disabled={disponibles < 1}
+        onClick={() => onSelect && onSelect(item)}
+        className="figma-btn-orange w-full py-2 text-xs uppercase mt-2"
       >
-        Solicitar préstamo
+        {disponibles > 0 ? 'Solicitar préstamo' : 'Sin stock'}
       </button>
     </div>
   );
-}
+};
+
+export default ItemCard;

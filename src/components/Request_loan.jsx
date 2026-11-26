@@ -1,131 +1,102 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../services/apiClient';
 
-export default function RequestLoan({ 
-  item = { name: 'Balon Futbol', condition: 'Good', available: 8 }, 
-  onCancel, 
-  onConfirm 
-}) {
-  const [quantity, setQuantity] = useState('');
-  const [activity, setActivity] = useState('');
+const RequestLoan = ({ item, onClose, onSuccess }) => {
+  const [cantidad, setCantidad] = useState(1);
+  const [canchaOActividad, setCanchaOActividad] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const maxStock = item.disponibles ?? item.cantidadTotal ?? 1;
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const qtyNumber = Number(quantity);
-
-    if (!qtyNumber || qtyNumber <= 0) {
-      setError('Ingresa una cantidad válida mayor a 0.');
-      return;
-    }
-
-    if (qtyNumber > item.available) {
-      setError(`Solo hay ${item.available} piezas disponibles.`);
-      return;
-    }
-
-    if (!activity.trim()) {
-      setError('Especifica la actividad para el préstamo.');
-      return;
-    }
-
-    // Enviar datos del préstamo confirmado
-    if (onConfirm) {
-      onConfirm({
-        item: item.name,
-        quantity: qtyNumber,
-        activity: activity.trim(),
+    try {
+      await apiFetch('/sports/loans', {
+        method: 'POST',
+        body: JSON.stringify({
+          itemId: item.id,
+          cantidad: Number(cantidad),
+          canchaOActividad,
+        }),
       });
+
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      setError(err.message || 'No se pudo solicitar el préstamo');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#021226] flex flex-col items-center justify-center p-6 font-sans">
-      
-      {/* Título Superior */}
-      <h1 className="text-white text-2xl font-bold mb-6 tracking-wide">
-        Request Loan
-      </h1>
-
-      {/* Tarjeta Principal */}
-      <div className="max-w-sm w-full bg-[#EAE2D3] border-[3px] border-[#F05A1A] rounded-3xl p-8 shadow-2xl">
-        
-        {/* Encabezado del Artículo: Nombre + Etiqueta de Estado */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[#021226] font-extrabold text-base">
-            {item.name}
-          </h2>
-          <span className="px-4 py-0.5 rounded-full border-[1.5px] border-[#021226] text-[#021226] text-xs font-bold">
-            {item.condition}
-          </span>
-        </div>
-
-        {/* Disponibilidad */}
-        <p className="text-[#1E5AA8] text-xs font-semibold mb-6">
-          Available: {item.available} pzas
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+      <div className="max-w-md w-full figma-card p-6 md:p-8">
+        <h2 className="mb-2">Request Loan</h2>
+        <p className="text-xs font-bold text-[#0050B3] mb-4">
+          {item.nombre} ({item.codigo}) — Disponibles: {maxStock}
         </p>
 
-        {/* Mensaje de error si excede stock o faltan datos */}
         {error && (
-          <div className="mb-4 bg-red-100 border border-red-500 text-red-700 px-3 py-1.5 rounded-xl text-xs font-semibold text-center">
+          <div className="mb-4 bg-[#FE3B3B]/20 border border-[#FE3B3B] text-[#FE3B3B] px-3 py-2 rounded-xl text-xs font-bold">
             {error}
           </div>
         )}
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* Campo Quantity (Input pequeño tipo píldora) */}
           <div>
-            <label className="block text-[#021226] font-semibold text-xs mb-1.5">
-              Quantity:
-            </label>
+            <label className="block font-bold text-xs mb-1">Cantidad:</label>
             <input
               type="number"
               min="1"
-              max={item.available}
+              max={maxStock}
               required
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="w-24 px-3 py-1 rounded-full bg-[#DCE2EA] border border-[#1E5AA8] text-[#021226] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#F05A1A]"
+              value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              disabled={loading}
+              className="figma-input"
             />
           </div>
 
-          {/* Campo Activity (Textarea/Caja rectangular redondeada) */}
           <div>
-            <label className="block text-[#021226] font-semibold text-xs mb-1.5">
-              Activity
+            <label className="block font-bold text-xs mb-1">
+              Cancha o Actividad:
             </label>
-            <textarea
-              rows="2"
+            <input
+              type="text"
               required
-              value={activity}
-              onChange={(e) => setActivity(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-[#DCE2EA] border border-[#1E5AA8] text-[#021226] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#F05A1A]"
+              placeholder="Ej. Cancha 2 / Entrenamiento"
+              value={canchaOActividad}
+              onChange={(e) => setCanchaOActividad(e.target.value)}
+              disabled={loading}
+              className="figma-input"
             />
           </div>
 
-          {/* Botones Cancel y Confirm */}
-          <div className="pt-4 flex items-center justify-center gap-5">
+          <div className="pt-3 flex justify-end gap-3">
             <button
               type="button"
-              onClick={onCancel}
-              className="px-6 py-1.5 rounded-full bg-[#F05A1A] hover:bg-[#d94d12] text-white text-xs font-semibold border border-[#1E5AA8] transition duration-200 cursor-pointer"
+              onClick={onClose}
+              disabled={loading}
+              className="px-4 py-1.5 rounded-full border border-[#001326] text-xs font-bold cursor-pointer"
             >
-              Cancel
+              CANCEL
             </button>
             <button
               type="submit"
-              className="px-6 py-1.5 rounded-full bg-[#F05A1A] hover:bg-[#d94d12] text-white text-xs font-semibold border border-[#1E5AA8] transition duration-200 cursor-pointer"
+              disabled={loading || maxStock < 1}
+              className="figma-btn-orange px-6 py-1.5 text-xs uppercase"
             >
-              Confirm
+              {loading ? 'ENVIANDO...' : 'SOLICITAR'}
             </button>
           </div>
-
         </form>
       </div>
-
     </div>
   );
-}
+};
+
+export default RequestLoan;
