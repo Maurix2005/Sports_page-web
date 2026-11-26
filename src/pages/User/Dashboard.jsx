@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import ItemCard from './ItemCard';
-import RequestLoan from './RequestLoan';
+import ItemCard from '../../components/cardItem';
+import RequestLoan from '../../components/Request_loan';
 
 // Datos de prueba replicando tu Figma (puedes reemplazarlos con los 12 artículos de tu API)
 const SAMPLE_EQUIPMENT = [
@@ -14,7 +14,7 @@ const SAMPLE_EQUIPMENT = [
 
 const SPORT_FILTERS = ['Todos', 'Soccer', 'Volley'];
 
-export default function Dashboard({ equipment = SAMPLE_EQUIPMENT, onLoanSubmitted }) {
+const Dashboard = ({ equipment = SAMPLE_EQUIPMENT, onLoanSubmitted }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSport, setSelectedSport] = useState('Todos');
   const [selectedItemForLoan, setSelectedItemForLoan] = useState(null);
@@ -120,3 +120,5 @@ export default function Dashboard({ equipment = SAMPLE_EQUIPMENT, onLoanSubmitte
     </div>
   );
 }
+
+export default Dashboard;
