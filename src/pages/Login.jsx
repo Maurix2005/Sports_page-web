@@ -1,58 +1,40 @@
 import React, { useState } from 'react';
-import { API_CONFIG, TEST_USERS } from '../services/apiConfig';
+import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../services/apiClient';
 
-export default function Login({ onSwitchToRegister, onLoginSuccess }) {
+const Login = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // OPCIÓN A: Validación directa contra las credenciales del JSON de tu API
-    const matchedUser = TEST_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (matchedUser) {
-      // Guardamos la sesión y el token de tu API en localStorage
-      localStorage.setItem('apiToken', API_CONFIG.TOKEN);
-      localStorage.setItem('userSession', JSON.stringify({
-        email: matchedUser.email,
-        rol: matchedUser.rol,
-        equipo: API_CONFIG.EQUIPO
-      }));
-
-      if (onLoginSuccess) onLoginSuccess(matchedUser);
-      return;
-    }
-
-    setError('Correo o contraseña incorrectos');
-
-    /* 
-    // OPCIÓN B: Si tu API tiene un endpoint POST /login que recibe el token en los headers:
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/login`, {
+      // Petición al endpoint de la rúbrica: POST /api/auth/login
+      // (apiFetch ya envía automáticamente el header x-api-token)
+      const data = await apiFetch('/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_CONFIG.TOKEN}`
-        },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem('apiToken', API_CONFIG.TOKEN);
-        localStorage.setItem('userSession', JSON.stringify(data));
+
+      // La API responde con { token: "eyJhbG...", user: { id, nombre, rol } }
+      if (onLoginSuccess) {
         onLoginSuccess(data);
-      } else {
-        setError(data.message || 'Error al iniciar sesión');
       }
+
+      // Redirigir según el rol devuelto por el JWT/usuario
+      navigate(data.user?.rol === 'ADMIN' ? '/admin/items' : '/inventory');
     } catch (err) {
-      setError('Error de conexión con la API');
+      setError(err.message || 'Correo o contraseña incorrectos');
+    } finally {
+      setLoading(false);
     }
-    */
   };
 
   return (
@@ -62,9 +44,9 @@ export default function Login({ onSwitchToRegister, onLoginSuccess }) {
         {/* Columna Izquierda: Logo */}
         <div className="flex flex-col items-center justify-center">
           <img 
-            src="/logo-lince.png" 
+            src="/logo.png" 
             alt="Logo Coordinación Deportiva" 
-            className="w-56 h-56 object-contain drop-shadow-lg"
+            className="w-80 h-80 object-contain drop-shadow-lg"
           />
         </div>
 
@@ -88,7 +70,8 @@ export default function Login({ onSwitchToRegister, onLoginSuccess }) {
                 placeholder="admin@equipo-b2.utr"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 rounded-full bg-[#DCE2EA] border border-[#1E5AA8] text-[#021226] focus:outline-none focus:ring-2 focus:ring-[#F05A1A]"
+                disabled={loading}
+                className="w-full px-4 py-2 rounded-full bg-[#DCE2EA] border border-[#1E5AA8] text-[#021226] focus:outline-none focus:ring-2 focus:ring-[#F05A1A] disabled:opacity-60"
               />
             </div>
 
@@ -101,21 +84,24 @@ export default function Login({ onSwitchToRegister, onLoginSuccess }) {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 rounded-full bg-[#DCE2EA] border border-[#1E5AA8] text-[#021226] focus:outline-none focus:ring-2 focus:ring-[#F05A1A]"
+                disabled={loading}
+                className="w-full px-4 py-2 rounded-full bg-[#DCE2EA] border border-[#1E5AA8] text-[#021226] focus:outline-none focus:ring-2 focus:ring-[#F05A1A] disabled:opacity-60"
               />
             </div>
 
             <div className="pt-4 flex items-center justify-between gap-4">
               <button
                 type="submit"
-                className="flex-1 bg-[#F05A1A] hover:bg-[#d94d12] text-white font-semibold py-2 px-6 rounded-full border border-[#1E5AA8] transition duration-200 cursor-pointer"
+                disabled={loading}
+                className="flex-1 bg-[#F05A1A] hover:bg-[#d94d12] text-white font-semibold py-2 px-6 rounded-full border border-[#1E5AA8] transition duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Log in
+                {loading ? 'Entrando...' : 'Log in'}
               </button>
               <button
                 type="button"
-                onClick={onSwitchToRegister}
-                className="flex-1 bg-[#F05A1A] hover:bg-[#d94d12] text-white font-semibold py-2 px-6 rounded-full border border-[#1E5AA8] transition duration-200 cursor-pointer"
+                disabled={loading}
+                onClick={() => navigate('/register')}
+                className="flex-1 bg-[#F05A1A] hover:bg-[#d94d12] text-white font-semibold py-2 px-6 rounded-full border border-[#1E5AA8] transition duration-200 cursor-pointer disabled:opacity-50"
               >
                 Sign up
               </button>
@@ -127,3 +113,5 @@ export default function Login({ onSwitchToRegister, onLoginSuccess }) {
     </div>
   );
 }
+
+export default Login;
