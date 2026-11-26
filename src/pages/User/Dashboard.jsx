@@ -1,124 +1,107 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../../services/apiClient';
 import ItemCard from '../../components/cardItem';
 import RequestLoan from '../../components/Request_loan';
 
-// Datos de prueba replicando tu Figma (puedes reemplazarlos con los 12 artículos de tu API)
-const SAMPLE_EQUIPMENT = [
-  { id: 1, code: 'DEP-01', name: 'Balón Fútbol #5', sport: 'Fútbol', category: 'Soccer', condition: 'BUENO', available: 8 },
-  { id: 2, code: 'DEP-15', name: 'Red de Voleibol', sport: 'Voleibol', category: 'Volley', condition: 'DESGASTADO', available: 0 },
-  { id: 3, code: 'DEP-07', name: 'Balón Básquetbol #7', sport: 'Básquetbol', category: 'Basket', condition: 'NUEVO', available: 5 },
-  { id: 4, code: 'DEP-02', name: 'Conos de Entrenamiento', sport: 'Fútbol', category: 'Soccer', condition: 'BUENO', available: 12 },
-  { id: 5, code: 'DEP-09', name: 'Balón Voleibol Playa', sport: 'Voleibol', category: 'Volley', condition: 'NUEVO', available: 4 },
-  { id: 6, code: 'DEP-11', name: 'Casacas Deportivas', sport: 'Fútbol', category: 'Soccer', condition: 'BUENO', available: 15 },
-];
+const Dashboard = () => {
+  const [items, setItems] = useState([]);
+  const [deporte, setDeporte] = useState('');
+  const [soloDisponibles, setSoloDisponibles] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-const SPORT_FILTERS = ['Todos', 'Soccer', 'Volley'];
+  const fetchItems = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      if (deporte.trim()) params.append('deporte', deporte.trim());
+      if (soloDisponibles) params.append('disponible', 'true');
 
-const Dashboard = ({ equipment = SAMPLE_EQUIPMENT, onLoanSubmitted }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSport, setSelectedSport] = useState('Todos');
-  const [selectedItemForLoan, setSelectedItemForLoan] = useState(null);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const data = await apiFetch(`/sports/items${query}`);
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || 'Error al cargar el inventario');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Filtrado por barra de búsqueda (nombre o código) y categoría de deporte
-  const filteredEquipment = equipment.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.code.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesSport =
-      selectedSport === 'Todos' ||
-      item.category.toLowerCase() === selectedSport.toLowerCase() ||
-      item.sport.toLowerCase() === selectedSport.toLowerCase();
-
-    return matchesSearch && matchesSport;
-  });
-
-  // Si hay un artículo seleccionado para préstamo, mostramos la vista RequestLoan
-  if (selectedItemForLoan) {
-    return (
-      <RequestLoan
-        item={{
-          name: selectedItemForLoan.name,
-          condition: selectedItemForLoan.condition,
-          available: selectedItemForLoan.available,
-        }}
-        onCancel={() => setSelectedItemForLoan(null)}
-        onConfirm={(loanData) => {
-          console.log('Préstamo solicitado:', loanData);
-          if (onLoanSubmitted) onLoanSubmitted(loanData);
-          setSelectedItemForLoan(null);
-        }}
-      />
-    );
-  }
+  useEffect(() => {
+    fetchItems();
+  }, [deporte, soloDisponibles]);
 
   return (
-    <div className="min-h-screen bg-[#021226] py-10 px-6 font-sans">
+    <div className="min-h-[85vh] bg-[#001326] py-8 px-6">
       <div className="max-w-5xl mx-auto">
-        
-        {/* Título */}
-        <h1 className="text-white text-2xl font-bold mb-5 tracking-wide">
-          Equipment Inventory:
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <h1 className="text-white">Sports Inventory</h1>
 
-        {/* Barra de Búsqueda + Filtros por Deporte */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 mb-10">
-          {/* Input de búsqueda redondeado */}
-          <div className="flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Buscar artículo o código (ej. DEP-01)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-5 py-2 rounded-full bg-[#DCE2EA] text-[#021226] text-sm font-medium placeholder-[#021226]/50 focus:outline-none focus:ring-2 focus:ring-[#F05A1A]"
-            />
-          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={deporte}
+              onChange={(e) => setDeporte(e.target.value)}
+              className="figma-input w-auto min-w-40"
+            >
+              <option value="">Todos los deportes</option>
+              <option value="Fútbol">Fútbol</option>
+              <option value="Básquetbol">Básquetbol</option>
+              <option value="Voleibol">Voleibol</option>
+              <option value="Atletismo">Atletismo</option>
+            </select>
 
-          {/* Selector de Deporte */}
-          <div className="flex items-center flex-wrap gap-2.5">
-            <span className="text-white font-bold text-base mr-1">
-              Sport:
-            </span>
-            {SPORT_FILTERS.map((sport) => {
-              const isActive = selectedSport === sport;
-              return (
-                <button
-                  key={sport}
-                  type="button"
-                  onClick={() => setSelectedSport(sport)}
-                  className={`px-5 py-1.5 rounded-full text-xs font-bold transition duration-200 cursor-pointer ${
-                    isActive
-                      ? 'bg-[#F05A1A] text-white border border-[#F05A1A]'
-                      : 'bg-transparent text-white border border-white hover:border-[#F05A1A] hover:text-[#F05A1A]'
-                  }`}
-                >
-                  {sport}
-                </button>
-              );
-            })}
+            <label className="flex items-center gap-2 text-xs font-bold text-[#E1DACA] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={soloDisponibles}
+                onChange={(e) => setSoloDisponibles(e.target.checked)}
+                className="accent-[#FB5607] w-4 h-4"
+              />
+              Solo disponibles
+            </label>
           </div>
         </div>
 
-        {/* Cuadrícula de Tarjetas de Inventario */}
-        {filteredEquipment.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEquipment.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onRequestLoan={(chosenItem) => setSelectedItemForLoan(chosenItem)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-[#EAE2D3]/10 border border-[#F05A1A]/40 rounded-3xl p-10 text-center text-white/80 text-sm">
-            No se encontraron artículos que coincidan con tu búsqueda.
+        {error && (
+          <div className="mb-4 bg-[#FE3B3B]/20 border border-[#FE3B3B] text-white px-4 py-2 rounded-xl text-xs font-bold">
+            {error}
           </div>
         )}
 
+        {loading ? (
+          <p className="text-center text-[#E1DACA] py-12">Cargando material deportivo...</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {items.map((item) => (
+              <ItemCard
+                key={item.id}
+                item={item}
+                onSelect={() => setSelectedItem(item)}
+              />
+            ))}
+            {items.length === 0 && (
+              <p className="col-span-full text-center text-[#E1DACA]/70 py-10">
+                No se encontró material con los filtros seleccionados.
+              </p>
+            )}
+          </div>
+        )}
+
+        {selectedItem && (
+          <RequestLoan
+            item={selectedItem}
+            onClose={() => setSelectedItem(null)}
+            onSuccess={() => {
+              setSelectedItem(null);
+              fetchItems();
+            }}
+          />
+        )}
       </div>
     </div>
   );
-}
+};
 
 export default Dashboard;
